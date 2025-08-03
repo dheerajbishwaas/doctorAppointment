@@ -1,0 +1,93 @@
+
+// Doctor Appointment Booking System DB Design (Final with Soft Delete, Status, Timestamps)
+
+Table roles {
+  id serial [primary key]
+  name varchar [unique] // 'admin', 'doctor', 'patient'
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table users {
+  id uuid [primary key]
+  name varchar
+  email varchar [unique]
+  password varchar
+  role_id integer [not null] // FK to roles.id
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table specializations {
+  id serial [primary key]
+  name varchar
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table doctor_specializations {
+  id uuid [primary key]
+  user_id uuid [not null] // FK to users.id (doctor)
+  specialization_id integer [not null] // FK to specializations.id
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table doctor_block_groups {
+  id uuid [primary key]
+  user_id uuid [not null] // FK to users.id (doctor)
+  block_type varchar [note: 'weekly, monthly, yearly']
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table doctor_block_dates {
+  id uuid [primary key]
+  block_group_id uuid [not null] // FK to doctor_block_groups.id
+  block_date date [note: 'Specific one-time date']
+  recurring_day varchar [note: 'For weekly blocks like Monday']
+  recurring_date integer [note: 'For monthly/yearly date (1-31)']
+  recurring_month integer [note: 'For yearly blocks (1-12)']
+  is_emergency_available boolean [default: false]
+  status varchar [default: 'active']
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table appointments {
+  id uuid [primary key]
+  doctor_id uuid [not null] // FK to users.id (role = doctor)
+  user_id uuid [not null] // FK to users.id (role = patient)
+  appointment_date date
+  start_time time
+  end_time time
+  booking_completed_at timestamp
+  status varchar [default: 'booked'] // booked, cancelled, completed
+  is_deleted boolean [default: false]
+  created_at timestamp
+  updated_at timestamp
+}
+
+// Relationships
+
+Ref: roles.id < users.role_id
+
+Ref: users.id < doctor_specializations.user_id
+Ref: specializations.id < doctor_specializations.specialization_id
+
+Ref: users.id < doctor_block_groups.user_id
+Ref: doctor_block_groups.id < doctor_block_dates.block_group_id
+
+Ref: users.id < appointments.doctor_id
+Ref: users.id < appointments.user_id
