@@ -24,8 +24,8 @@ export class DoctorAvailabilitiesService {
 
     // Fallback to default ENV time
     return {
-      start_time: process.env.DOCTOR_AVILABE_STARTTIME || '08:00AM',
-      end_time: process.env.DOCTOR_AVILABE_ENDTIME || '08:00PM',
+      start_time: process.env.DOCTOR_AVILABE_STARTTIME || '08:00',
+      end_time: process.env.DOCTOR_AVILABE_ENDTIME || '20:00',
     };
   }
 }

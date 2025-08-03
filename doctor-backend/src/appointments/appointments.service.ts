@@ -14,16 +14,37 @@ export class AppointmentsService {
 
     private doctorAvailabilitiesService: DoctorAvailabilitiesService,
     private doctorBlocksService: DoctorBlocksService,
-  ) {}
+  ) { }
+
+  private timeStringToMinutes(timeStr: string): number {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
 
   async createAppointment(createDto: CreateAppointmentDto, patient: any) {
-    // Step 1: Get Doctor Availability Time
+    // Step 1: Get Doctor Availability Time (from DB or ENV)
     const availability = await this.doctorAvailabilitiesService.getDoctorAvailability(createDto.doctor_id);
-    const doctorStart = availability.start_time;
-    const doctorEnd = availability.end_time;
+    const doctorStart = availability.start_time;  // e.g., "08:00"
+    const doctorEnd = availability.end_time;      // e.g., "20:00"
 
-    // Check if appointment time is within availability
-    if (createDto.start_time < doctorStart || createDto.end_time > doctorEnd) {
+    const minDuration = parseInt(process.env.MIN_APPOINTMENT_DURATION_MINUTES || '15', 10);
+
+    const [startHour, startMinute] = createDto.start_time.split(':').map(Number);
+    const [endHour, endMinute] = createDto.end_time.split(':').map(Number);
+
+    const startTotalMin = startHour * 60 + startMinute;
+    const endTotalMin = endHour * 60 + endMinute;
+
+    if ((endTotalMin - startTotalMin) < minDuration) {
+      throw new BadRequestException(`Appointment duration must be at least ${minDuration} minutes`);
+    }
+
+    const appointmentStartMin = this.timeStringToMinutes(createDto.start_time);
+    const appointmentEndMin = this.timeStringToMinutes(createDto.end_time);
+    const doctorStartMin = this.timeStringToMinutes(doctorStart);
+    const doctorEndMin = this.timeStringToMinutes(doctorEnd);
+
+    if (appointmentStartMin < doctorStartMin || appointmentEndMin > doctorEndMin) {
       throw new BadRequestException(`Doctor is only available from ${doctorStart} to ${doctorEnd}`);
     }
 
@@ -33,15 +54,15 @@ export class AppointmentsService {
       throw new BadRequestException('Doctor is not available on the selected date');
     }
 
-    // Step 3: Check if doctor is already booked for the selected slot
+    // Step 3: Check if doctor already has an appointment at this time
     const overlapDoctor = await this.appointmentsRepo
       .createQueryBuilder('appointment')
       .where('appointment.doctor_id = :doctor_id', { doctor_id: createDto.doctor_id })
       .andWhere('appointment.appointment_date = :date', { date: createDto.appointment_date })
       .andWhere('appointment.status = :status', { status: 'booked' })
       .andWhere(`
-        (appointment.start_time < :end_time AND appointment.end_time > :start_time)
-      `, {
+    (appointment.start_time < :end_time AND appointment.end_time > :start_time)
+  `, {
         start_time: createDto.start_time,
         end_time: createDto.end_time,
       })
@@ -51,26 +72,25 @@ export class AppointmentsService {
       throw new BadRequestException('Doctor is already booked for this time slot');
     }
 
-    // Step 4: Check if patient already has an appointment at this time with the same doctor
-    const overlapPatient = await this.appointmentsRepo
+    // Step 4: Check if patient already has ANY appointment at this time
+    const overlapPatient1 = await this.appointmentsRepo
       .createQueryBuilder('appointment')
       .where('appointment.user_id = :user_id', { user_id: patient.userId })
-      .andWhere('appointment.doctor_id = :doctor_id', { doctor_id: createDto.doctor_id })
       .andWhere('appointment.appointment_date = :date', { date: createDto.appointment_date })
       .andWhere('appointment.status = :status', { status: 'booked' })
       .andWhere(`
-        (appointment.start_time < :end_time AND appointment.end_time > :start_time)
-      `, {
+    (appointment.start_time < :end_time AND appointment.end_time > :start_time)
+  `, {
         start_time: createDto.start_time,
         end_time: createDto.end_time,
       })
       .getOne();
 
-    if (overlapPatient) {
-      throw new BadRequestException('You already have an appointment at this time with this doctor');
+    if (overlapPatient1) {
+      throw new BadRequestException('You already have an appointment during this time');
     }
 
-    // Step 5: Book Appointment
+    // Step 5: Book the Appointment
     const appointment = this.appointmentsRepo.create({
       doctor_id: createDto.doctor_id,
       user_id: patient.userId,
@@ -78,6 +98,7 @@ export class AppointmentsService {
       start_time: createDto.start_time,
       end_time: createDto.end_time,
       booking_completed_at: new Date(),
+      status: 'booked',
     });
 
     return this.appointmentsRepo.save(appointment);

@@ -4,13 +4,13 @@ import { Appointment } from './entities/appointment.entity';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { DoctorAvailabilitiesModule } from '../doctor-availabilities/doctor-availabilities.module';
-import { DoctorBlocksModule } from '../doctor-blocks/doctor-blocks.module';
+import { DoctorBlocksModule } from '../doctor-blocks/doctor-blocks.module'; 
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Appointment]),
     DoctorAvailabilitiesModule,
-    DoctorBlocksModule, // we will create this next
+    DoctorBlocksModule  
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],

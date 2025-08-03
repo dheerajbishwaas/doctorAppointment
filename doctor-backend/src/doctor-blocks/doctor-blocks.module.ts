@@ -9,5 +9,6 @@ import { DoctorBlockDate } from './entities/doctor-block-date.entity';
   imports: [TypeOrmModule.forFeature([DoctorBlockGroup, DoctorBlockDate])],
   controllers: [DoctorBlocksController],
   providers: [DoctorBlocksService],
+  exports: [DoctorBlocksService],
 })
 export class DoctorBlocksModule {}

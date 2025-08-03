@@ -30,4 +30,46 @@ export class DoctorBlocksService {
 
     return this.blockGroupRepo.save(blockGroup);
   }
+
+async isDateBlocked(doctor_id: string, date: string): Promise<boolean> {
+  const blockGroups = await this.blockGroupRepo.find({
+    where: { user_id: doctor_id, is_deleted: false, status: 'active' },
+    relations: ['dates'],  // Relation name 'dates'
+  });
+
+  const targetDate = new Date(date);
+  const dayName = targetDate.toLocaleString('en-US', { weekday: 'long' });
+  const dayOfMonth = targetDate.getDate();
+  const month = targetDate.getMonth() + 1;
+
+  // ---------------------------- LOOP START ----------------------------
+  for (const group of blockGroups) {
+  for (const block of group.dates) {
+    // Weekly Block Check
+    if (group.block_type === 'weekly' && block.recurring_day === dayName) {
+      return true;
+    }
+
+    // Monthly Block Check
+    if (group.block_type === 'monthly' && block.recurring_date === dayOfMonth) {
+      return true;
+    }
+
+    // Yearly Block Check
+    if (group.block_type === 'yearly' && block.recurring_date === dayOfMonth && block.recurring_month === month) {
+      return true;
+    }
+
+    // Specific Date Block (String to Date conversion)
+    if (block.block_date && new Date(block.block_date).toISOString().split('T')[0] === date) {
+      return true;
+    }
+  }
+}
+
+  // ---------------------------- LOOP END ----------------------------
+
+  return false;  // Not Blocked
+}
+
 }
